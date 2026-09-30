@@ -1,6 +1,7 @@
 import React from 'react';
 
 export default function Sidebar({
+  currentUser,
   currentRole = 'school_admin',
   setCurrentRole,
   currentView,
@@ -8,7 +9,14 @@ export default function Sidebar({
   schoolName,
   studentsCount,
   professorsCount,
+  onLogout,
 }) {
+  const superAdminMenuItems = [
+    { id: 'overview', label: 'Platform SaaS Overview', icon: '🌐', badge: '18 Schools' },
+    { id: 'subscriptions', label: 'Tenants & Billing', icon: '💳', badge: 'Active' },
+    { id: 'system_health', label: 'System Health', icon: '⚡', badge: '99.9%' },
+  ];
+
   const adminMenuItems = [
     { id: 'overview', label: 'Dashboard Overview', icon: '📊', badge: null },
     { id: 'students', label: 'Students Directory', icon: '🎓', badge: studentsCount },
@@ -29,15 +37,25 @@ export default function Sidebar({
   ];
 
   const currentMenu =
-    currentRole === 'professor'
+    currentRole === 'super_admin'
+      ? superAdminMenuItems
+      : currentRole === 'professor'
       ? professorMenuItems
       : currentRole === 'student'
       ? studentMenuItems
       : adminMenuItems;
 
   const roleProfiles = {
+    super_admin: {
+      name: currentUser?.name || 'Super Administrator',
+      role: 'role: super_admin',
+      badge: 'Platform Owner',
+      avatar: '👑',
+      badgeColor: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
+      gradient: 'from-rose-500 to-indigo-600',
+    },
     school_admin: {
-      name: 'Sarah Connor',
+      name: currentUser?.name || 'Sarah Connor',
       role: 'role: school_admin',
       badge: 'Principal',
       avatar: 'SC',
@@ -45,7 +63,7 @@ export default function Sidebar({
       gradient: 'from-amber-500 to-indigo-600',
     },
     professor: {
-      name: 'Dr. Alan Turing',
+      name: currentUser?.name || 'Dr. Alan Turing',
       role: 'role: professor',
       badge: 'Faculty',
       avatar: 'AT',
@@ -53,7 +71,7 @@ export default function Sidebar({
       gradient: 'from-cyan-500 to-blue-600',
     },
     student: {
-      name: 'John Doe',
+      name: currentUser?.name || 'John Doe',
       role: 'role: student',
       badge: 'Student',
       avatar: 'JD',
@@ -84,7 +102,9 @@ export default function Sidebar({
         <div className="mt-4 p-2.5 rounded-xl bg-slate-950/70 border border-slate-800/80 flex items-center justify-between">
           <div className="overflow-hidden">
             <span className="text-[10px] text-slate-400 block font-semibold uppercase tracking-wider">Tenant Scope</span>
-            <p className="text-xs font-bold text-white truncate">{schoolName || 'Horizon Academy'}</p>
+            <p className="text-xs font-bold text-white truncate">
+              {currentRole === 'super_admin' ? 'Global Platform Scope' : (schoolName || 'Horizon Academy')}
+            </p>
           </div>
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
         </div>
@@ -95,10 +115,21 @@ export default function Sidebar({
         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5 px-1">
           Switch Portal View
         </span>
-        <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+        <div className="grid grid-cols-4 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[10px]">
+          <button
+            onClick={() => setCurrentRole('super_admin')}
+            className={`py-1.5 rounded-lg font-bold transition ${
+              currentRole === 'super_admin'
+                ? 'bg-rose-600 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
+            title="Super Admin Dashboard"
+          >
+            Owner
+          </button>
           <button
             onClick={() => setCurrentRole('school_admin')}
-            className={`py-1.5 rounded-lg text-[10px] font-bold transition ${
+            className={`py-1.5 rounded-lg font-bold transition ${
               currentRole === 'school_admin'
                 ? 'bg-indigo-600 text-white shadow'
                 : 'text-slate-400 hover:text-white'
@@ -109,7 +140,7 @@ export default function Sidebar({
           </button>
           <button
             onClick={() => setCurrentRole('professor')}
-            className={`py-1.5 rounded-lg text-[10px] font-bold transition ${
+            className={`py-1.5 rounded-lg font-bold transition ${
               currentRole === 'professor'
                 ? 'bg-cyan-600 text-white shadow'
                 : 'text-slate-400 hover:text-white'
@@ -120,7 +151,7 @@ export default function Sidebar({
           </button>
           <button
             onClick={() => setCurrentRole('student')}
-            className={`py-1.5 rounded-lg text-[10px] font-bold transition ${
+            className={`py-1.5 rounded-lg font-bold transition ${
               currentRole === 'student'
                 ? 'bg-emerald-600 text-white shadow'
                 : 'text-slate-400 hover:text-white'
@@ -184,8 +215,8 @@ export default function Sidebar({
         </div>
       </nav>
 
-      {/* User Profile Card */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-950/40">
+      {/* User Profile & Sign Out Footer */}
+      <div className="p-4 border-t border-slate-800/80 bg-slate-950/60 space-y-3">
         <div className="flex items-center gap-3">
           <div
             className={`w-8 h-8 rounded-full bg-gradient-to-tr ${profile.gradient} flex items-center justify-center font-bold text-white text-xs ring-1 ring-white/20`}
@@ -200,6 +231,16 @@ export default function Sidebar({
             {profile.badge}
           </span>
         </div>
+
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="w-full py-1.5 px-3 rounded-xl bg-slate-900 hover:bg-rose-500/10 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-500/30 text-xs font-semibold transition flex items-center justify-center gap-2"
+          >
+            <span>🚪</span>
+            <span>Sign Out / Switch Account</span>
+          </button>
+        )}
       </div>
     </aside>
   );
