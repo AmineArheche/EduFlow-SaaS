@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import Sidebar from './components/Sidebar';
+import LoginPage from './components/LoginPage';
+import SuperAdminDashboard from './components/SuperAdminDashboard';
 import SchoolAdminDashboard from './components/SchoolAdminDashboard';
 import ProfessorDashboard from './components/ProfessorDashboard';
 import StudentDashboard from './components/StudentDashboard';
@@ -33,15 +35,17 @@ const mockTenants = [
 ];
 
 export default function App() {
-  const [currentRole, setCurrentRole] = useState('school_admin'); // 'school_admin' | 'professor' | 'student'
+  // Authentication state: if null, shows LoginPage
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentRole, setCurrentRole] = useState('school_admin'); // 'super_admin' | 'school_admin' | 'professor' | 'student'
   const [currentView, setCurrentView] = useState('overview');
   const [activeTenant, setActiveTenant] = useState(mockTenants[0]);
   const [toasts, setToasts] = useState([
     {
       id: 1,
       type: 'info',
-      title: 'Portal Ready',
-      message: 'You can switch between School Admin, Professor, and Student portals using the role switcher.',
+      title: 'EduFlow-SaaS Gateway',
+      message: 'Sign in with your role-specific credentials to enter your dedicated portal.',
     },
   ]);
 
@@ -58,20 +62,50 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // Login handler: filters by role and redirects to appropriate dashboard
+  const handleLoginSuccess = (user, role) => {
+    setCurrentUser(user);
+    setCurrentRole(role);
+    setCurrentView('overview');
+  };
+
+  // Logout handler: returns to login page
+  const handleLogout = () => {
+    localStorage.removeItem('eduflow_token');
+    setCurrentUser(null);
+    addToast({
+      type: 'info',
+      title: 'Signed Out',
+      message: 'You have been signed out. Please log in again to access portals.',
+    });
+  };
+
+  // Role change switcher
   const handleRoleChange = (role) => {
     setCurrentRole(role);
     setCurrentView('overview');
     const roleLabels = {
+      super_admin: 'Platform Super Administrator',
       school_admin: 'School Administrator (Sarah Connor)',
       professor: 'Faculty Professor (Dr. Alan Turing)',
       student: 'Enrolled Student (John Doe)',
     };
     addToast({
       type: 'success',
-      title: 'Role Switched',
-      message: `Switched view to ${roleLabels[role]}. Access strictly validated via RBAC.`,
+      title: 'Portal View Changed',
+      message: `Navigated to ${roleLabels[role]}. Access enforced via RBAC.`,
     });
   };
+
+  // If user is not authenticated, render LoginPage
+  if (!currentUser) {
+    return (
+      <>
+        <Toast toasts={toasts} onDismiss={dismissToast} />
+        <LoginPage onLoginSuccess={handleLoginSuccess} addToast={addToast} />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-indigo-500 selection:text-white">
@@ -81,6 +115,7 @@ export default function App() {
       <div className="flex-1 flex flex-col md:flex-row min-h-screen">
         {/* Sidebar Navigation */}
         <Sidebar
+          currentUser={currentUser}
           currentRole={currentRole}
           setCurrentRole={handleRoleChange}
           currentView={currentView}
@@ -88,19 +123,31 @@ export default function App() {
           schoolName={activeTenant.school_name}
           studentsCount="380"
           professorsCount="26"
+          onLogout={handleLogout}
         />
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col min-w-0 bg-slate-950">
-          {/* Top Bar with Role Switcher & Tenant Selection */}
+          {/* Top Bar with Role Filter Switcher & Logout */}
           <header className="h-16 border-b border-slate-800 bg-slate-900/60 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
-            {/* Left: Active Role Badge */}
+            {/* Left: Role Filter Switcher */}
             <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-400 hidden sm:inline">Active Dashboard:</span>
-              <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <span className="text-xs text-slate-400 hidden sm:inline">Active Role Filter:</span>
+              <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                <button
+                  onClick={() => handleRoleChange('super_admin')}
+                  className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 ${
+                    currentRole === 'super_admin'
+                      ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <span>👑</span>
+                  <span>Super Admin</span>
+                </button>
                 <button
                   onClick={() => handleRoleChange('school_admin')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 ${
                     currentRole === 'school_admin'
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                       : 'text-slate-400 hover:text-white'
@@ -111,7 +158,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => handleRoleChange('professor')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 ${
                     currentRole === 'professor'
                       ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30'
                       : 'text-slate-400 hover:text-white'
@@ -122,7 +169,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => handleRoleChange('student')}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  className={`px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 ${
                     currentRole === 'student'
                       ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
                       : 'text-slate-400 hover:text-white'
@@ -134,39 +181,40 @@ export default function App() {
               </div>
             </div>
 
-            {/* Right: Tenant Switcher */}
+            {/* Right: Tenant info & Sign Out */}
             <div className="flex items-center gap-3">
-              <div className="hidden lg:flex items-center gap-2 text-xs">
-                <span className="text-slate-400">School:</span>
-                <select
-                  value={activeTenant.id}
-                  onChange={(e) => {
-                    const selected = mockTenants.find((t) => t.id === Number(e.target.value));
-                    setActiveTenant(selected);
-                    addToast({
-                      type: 'info',
-                      title: 'School Tenant Switched',
-                      message: `Scoped to "${selected.school_name}" (tenant_id: ${selected.id}).`,
-                    });
-                  }}
-                  className="bg-slate-900 text-indigo-300 font-semibold px-2.5 py-1 rounded-lg border border-slate-700 outline-none text-xs"
-                >
-                  {mockTenants.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.school_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {currentRole !== 'super_admin' && (
+                <div className="hidden lg:flex items-center gap-2 text-xs">
+                  <span className="text-slate-400">School:</span>
+                  <select
+                    value={activeTenant.id}
+                    onChange={(e) => {
+                      const selected = mockTenants.find((t) => t.id === Number(e.target.value));
+                      setActiveTenant(selected);
+                      addToast({
+                        type: 'info',
+                        title: 'School Tenant Switched',
+                        message: `Scoped to "${selected.school_name}" (tenant_id: ${selected.id}).`,
+                      });
+                    }}
+                    className="bg-slate-900 text-indigo-300 font-semibold px-2.5 py-1 rounded-lg border border-slate-700 outline-none text-xs"
+                  >
+                    {mockTenants.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.school_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <a
-                href="http://localhost:8000/api/health"
-                target="_blank"
-                rel="noreferrer"
-                className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 transition"
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-800 hover:bg-rose-500/10 hover:text-rose-400 border border-slate-700 hover:border-rose-500/30 text-slate-300 transition flex items-center gap-1.5"
               >
-                API Health
-              </a>
+                <span>🚪</span>
+                <span className="hidden sm:inline">Sign Out</span>
+              </button>
             </div>
           </header>
 
@@ -176,7 +224,9 @@ export default function App() {
               <div>
                 <h2 className="text-lg font-extrabold text-white flex items-center gap-2">
                   <span>
-                    {currentRole === 'professor'
+                    {currentRole === 'super_admin'
+                      ? '👑 Platform Super Admin Operations'
+                      : currentRole === 'professor'
                       ? '👨‍🏫 Professor Teaching Center & Gradebook'
                       : currentRole === 'student'
                       ? '🎓 Student Academic Space & Homework'
@@ -184,14 +234,17 @@ export default function App() {
                   </span>
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Tenant: <span className="text-indigo-300 font-medium">{activeTenant.school_name}</span> &bull; Guarded by Laravel Sanctum RBAC Middleware
+                  Logged in as <strong className="text-white">{currentUser.name}</strong> ({currentUser.email}) &bull; Role:{' '}
+                  <span className="text-indigo-300 font-mono capitalize">{currentRole.replace('_', ' ')}</span>
                 </p>
               </div>
 
               <div className="flex items-center gap-2 text-xs font-mono">
-                <span className="text-slate-500">API Endpoint:</span>
-                <span className="px-2 py-0.5 rounded bg-slate-950 text-indigo-300 border border-slate-800">
-                  {currentRole === 'professor'
+                <span className="text-slate-500">Guarded API:</span>
+                <span className="px-2.5 py-0.5 rounded bg-slate-950 text-indigo-300 border border-slate-800 font-bold">
+                  {currentRole === 'super_admin'
+                    ? '/api/admin/dashboard'
+                    : currentRole === 'professor'
                     ? '/api/professor/dashboard'
                     : currentRole === 'student'
                     ? '/api/student/dashboard'
@@ -207,14 +260,18 @@ export default function App() {
               <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-4">
                 <h3 className="text-base font-bold text-white">RBAC Security Specification</h3>
                 <p className="text-xs text-slate-400">
-                  All 4 dashboards are protected by <code className="text-indigo-300">['auth:sanctum', 'role:ROLE_NAME']</code>.
-                  Unauthorized users are blocked by the <code className="text-indigo-300">CheckRole</code> middleware with HTTP 403.
+                  Each user is strictly filtered and routed according to their token ability and role.
                 </p>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
+                  <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+                    <strong className="text-rose-400 block mb-1">👑 Super Admin</strong>
+                    <code className="text-slate-300 font-mono text-[11px] block">/api/admin/dashboard</code>
+                    <p className="text-slate-500 mt-2">Manage all 18 school subscriptions and platform analytics.</p>
+                  </div>
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs">
                     <strong className="text-amber-400 block mb-1">🏫 School Admin</strong>
                     <code className="text-slate-300 font-mono text-[11px] block">/api/school/*</code>
-                    <p className="text-slate-500 mt-2">Manage student directory, faculty, cohorts, subscriptions.</p>
+                    <p className="text-slate-500 mt-2">Manage student directory, faculty staff, classes, and cohorts.</p>
                   </div>
                   <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs">
                     <strong className="text-cyan-400 block mb-1">👨‍🏫 Professor</strong>
@@ -228,6 +285,8 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            ) : currentRole === 'super_admin' ? (
+              <SuperAdminDashboard addToast={addToast} />
             ) : currentRole === 'professor' ? (
               <ProfessorDashboard addToast={addToast} />
             ) : currentRole === 'student' ? (
@@ -239,7 +298,7 @@ export default function App() {
 
           {/* Footer */}
           <footer className="border-t border-slate-800/80 bg-slate-950 p-4 text-center text-xs text-slate-500">
-            EduFlow-SaaS &copy; 2026. Multi-Tenant School Architecture &bull; Backend: Laravel 12 &bull; Frontend: React + Tailwind CSS v4.
+            EduFlow-SaaS &copy; 2026. Role-Based Educational Architecture &bull; Laravel 12 Backend + React Vite.
           </footer>
         </div>
       </div>
