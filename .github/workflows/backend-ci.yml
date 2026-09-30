@@ -1,0 +1,40 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main, 'feature/**' ]
+    paths:
+      - 'backend/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+
+jobs:
+  laravel-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_sqlite, bcmath
+        coverage: none
+
+    - name: Copy .env
+      run: cp backend/.env.example backend/.env
+
+    - name: Install Composer Dependencies
+      run: cd backend && composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+    - name: Generate key
+      run: cd backend && php artisan key:generate
+
+    - name: Execute migrations (SQLite)
+      run: cd backend && touch database/database.sqlite && php artisan migrate --database=sqlite --force
+
+    - name: Execute tests
+      run: cd backend && php artisan test
