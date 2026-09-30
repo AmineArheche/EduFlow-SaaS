@@ -7,8 +7,9 @@ const demoAccounts = [
     email: 'superadmin@eduflow.io',
     password: 'password123',
     icon: '👑',
-    color: 'from-rose-500/20 to-red-500/20 border-rose-500/30 text-rose-300',
-    desc: 'Platform Owner (Access all schools & subscriptions)',
+    badge: 'Platform Owner',
+    color: 'from-rose-500/15 via-slate-900 to-rose-950/30 border-rose-500/30 text-rose-300 hover:border-rose-400',
+    desc: 'Access all schools, billing & global SaaS analytics',
   },
   {
     role: 'school_admin',
@@ -16,8 +17,9 @@ const demoAccounts = [
     email: 'admin@horizon-academy.edu',
     password: 'password123',
     icon: '🏫',
-    color: 'from-amber-500/20 to-yellow-500/20 border-amber-500/30 text-amber-300',
-    desc: 'School Administrator (Manage students, faculty & classes)',
+    badge: 'School Admin',
+    color: 'from-amber-500/15 via-slate-900 to-amber-950/30 border-amber-500/30 text-amber-300 hover:border-amber-400',
+    desc: 'Manage student directory, professors, and classes',
   },
   {
     role: 'professor',
@@ -25,8 +27,9 @@ const demoAccounts = [
     email: 'alan.turing@horizon-academy.edu',
     password: 'password123',
     icon: '👨‍🏫',
-    color: 'from-cyan-500/20 to-blue-500/20 border-cyan-500/30 text-cyan-300',
-    desc: 'Faculty Professor (Gradebooks, syllabus & exams)',
+    badge: 'Professor',
+    color: 'from-cyan-500/15 via-slate-900 to-cyan-950/30 border-cyan-500/30 text-cyan-300 hover:border-cyan-400',
+    desc: 'Gradebooks, course syllabus, and exam schedules',
   },
   {
     role: 'student',
@@ -34,45 +37,50 @@ const demoAccounts = [
     email: 'student.john@horizon-academy.edu',
     password: 'password123',
     icon: '🎓',
-    color: 'from-emerald-500/20 to-teal-500/20 border-emerald-500/30 text-emerald-300',
-    desc: 'Enrolled Student (Classes, grades & homework)',
+    badge: 'Student',
+    color: 'from-emerald-500/15 via-slate-900 to-emerald-950/30 border-emerald-500/30 text-emerald-300 hover:border-emerald-400',
+    desc: 'Enrolled courses, GPA marks, and homework uploads',
   },
 ];
 
 export default function LoginPage({ onLoginSuccess, addToast }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('admin@horizon-academy.edu');
+  const [password, setPassword] = useState('password123');
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleQuickLogin = (demo) => {
-    setEmail(demo.email);
-    setPassword(demo.password);
-    setErrorMsg('');
+  // 1-Click Instant Login
+  const handleInstantLogin = (account) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    authenticateUser(account.email, account.password, account);
   };
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    if (!email || !password) {
-      setErrorMsg('Please enter both email address and password.');
-      return;
-    }
-
+  const authenticateUser = async (userEmail, userPassword, fallbackDemo = null) => {
     setIsLoading(true);
     setErrorMsg('');
 
+    const targetDemo = fallbackDemo || demoAccounts.find(
+      (d) => d.email.toLowerCase() === userEmail.trim().toLowerCase()
+    );
+
     try {
-      // 1. Attempt live API login to Laravel backend
-      const response = await fetch('http://localhost:8000/api/auth/login', {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      // Attempt live API login through Vite proxy
+      const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: userEmail, password: userPassword }),
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
 
       if (response.ok && data.success) {
@@ -81,31 +89,28 @@ export default function LoginPage({ onLoginSuccess, addToast }) {
         }
         addToast({
           type: 'success',
-          title: 'Login Successful',
-          message: `Authenticated as ${data.user.name}. Redirecting to ${data.user.role.replace('_', ' ')} dashboard...`,
+          title: 'Access Granted',
+          message: `Welcome back, ${data.user.name}! Redirecting to ${data.user.role.replace('_', ' ')} portal...`,
         });
         onLoginSuccess(data.user, data.user.role);
         return;
       } else {
-        // If API returned an error (e.g. invalid credentials)
-        if (response.status === 403 || response.status === 401 || response.status === 422) {
-          setErrorMsg(data.message || 'The provided credentials do not match our records.');
+        if (data.message) {
+          setErrorMsg(data.message);
           setIsLoading(false);
           return;
         }
       }
     } catch {
-      // 2. Fallback to client-side simulated login if backend is unreachable
-      const matchedDemo = demoAccounts.find((d) => d.email.toLowerCase() === email.toLowerCase());
-
-      if (matchedDemo && password === 'password123') {
+      // If network/proxy throws, use the verified demo fallback
+      if (targetDemo && (userPassword === 'password123' || !userPassword)) {
         const simulatedUser = {
-          id: matchedDemo.role === 'super_admin' ? 1 : 2,
-          name: matchedDemo.name,
-          email: matchedDemo.email,
-          role: matchedDemo.role,
+          id: targetDemo.role === 'super_admin' ? 1 : 2,
+          name: targetDemo.name,
+          email: targetDemo.email,
+          role: targetDemo.role,
           status: 'active',
-          tenant: matchedDemo.role !== 'super_admin' ? {
+          tenant: targetDemo.role !== 'super_admin' ? {
             id: 1,
             school_name: 'Horizon International Academy',
             slug: 'horizon-academy',
@@ -114,42 +119,93 @@ export default function LoginPage({ onLoginSuccess, addToast }) {
 
         addToast({
           type: 'success',
-          title: 'Authenticated Successfully',
-          message: `Logged in as ${simulatedUser.name}. Redirecting to ${simulatedUser.role.replace('_', ' ')} dashboard...`,
+          title: 'Access Granted (Demo Session)',
+          message: `Welcome, ${simulatedUser.name}! Entering ${simulatedUser.role.replace('_', ' ')} dashboard...`,
         });
         onLoginSuccess(simulatedUser, simulatedUser.role);
         return;
       }
 
-      setErrorMsg('Invalid email or password. Use one of the demo accounts below to test.');
+      setErrorMsg('Invalid email or password. Please select one of the 4 demo profiles below.');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setErrorMsg('Please provide both email and password.');
+      return;
+    }
+    authenticateUser(email, password);
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden font-sans">
-      {/* Background glow effects */}
+    <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center px-4 py-10 relative overflow-hidden font-sans">
+      {/* Background radial glow */}
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-indigo-600/15 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-cyan-600/10 rounded-full blur-3xl pointer-events-none"></div>
 
       {/* Main Container */}
-      <div className="max-w-md w-full space-y-6 relative z-10 animate-fadeIn">
+      <div className="max-w-lg w-full space-y-6 relative z-10 animate-fadeIn">
         {/* Logo and Title */}
         <div className="text-center space-y-2">
           <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 via-violet-600 to-cyan-400 items-center justify-center shadow-xl shadow-indigo-500/25 ring-2 ring-white/20 mb-2">
             <span className="text-white font-black text-2xl">E</span>
           </div>
           <h1 className="text-2xl font-black bg-gradient-to-r from-white via-slate-100 to-indigo-300 bg-clip-text text-transparent">
-            EduFlow-SaaS
+            EduFlow-SaaS Gateway
           </h1>
           <p className="text-xs text-slate-400">
             Sign in to access your role-protected educational portal
           </p>
         </div>
 
-        {/* Login Card */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+        {/* 1-Click Instant Role Logins (Top Priority Access) */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 shadow-2xl backdrop-blur-xl space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+              <span>⚡</span> Instant 1-Click Role Logins
+            </span>
+            <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+              Ready to Test
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {demoAccounts.map((account) => (
+              <button
+                key={account.role}
+                type="button"
+                onClick={() => handleInstantLogin(account)}
+                className={`p-3 rounded-2xl border text-left transition hover:scale-[1.02] active:scale-[0.99] bg-gradient-to-br ${account.color} flex flex-col justify-between`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-base">{account.icon}</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-950/80 text-slate-200">
+                      {account.badge}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-xs text-white truncate">{account.name}</h4>
+                  <p className="text-[10px] text-slate-400 font-mono truncate">{account.email}</p>
+                </div>
+                <div className="mt-2.5 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px]">
+                  <span className="text-slate-400">Password: <code className="text-slate-300">password123</code></span>
+                  <span className="font-bold text-indigo-400">Enter &rarr;</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Manual Credentials Form */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 shadow-2xl backdrop-blur-xl">
+          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">
+            Or Sign In with Specific Credentials
+          </h3>
+
           {errorMsg && (
             <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2">
               <span>⚠</span>
@@ -157,10 +213,10 @@ export default function LoginPage({ onLoginSuccess, addToast }) {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-slate-300 block mb-1.5">
-                School or Platform Email
+              <label className="text-xs font-semibold text-slate-300 block mb-1">
+                Email Address
               </label>
               <input
                 type="email"
@@ -168,26 +224,21 @@ export default function LoginPage({ onLoginSuccess, addToast }) {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@school.edu"
                 required
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition"
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-slate-300">
-                  Password
-                </label>
-                <span className="text-[11px] text-indigo-400 hover:text-indigo-300 cursor-pointer">
-                  Forgot password?
-                </span>
-              </div>
+              <label className="text-xs font-semibold text-slate-300 block mb-1">
+                Password
+              </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition"
               />
             </div>
 
@@ -199,9 +250,9 @@ export default function LoginPage({ onLoginSuccess, addToast }) {
                   onChange={(e) => setRememberMe(e.target.checked)}
                   className="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-0"
                 />
-                <span>Remember this device</span>
+                <span>Remember me</span>
               </label>
-              <span className="text-[11px] text-slate-500">Sanctum Token Auth</span>
+              <span className="text-[11px] text-slate-500 font-mono">Sanctum RBAC Auth</span>
             </div>
 
             <button
@@ -215,36 +266,10 @@ export default function LoginPage({ onLoginSuccess, addToast }) {
                   <span>Verifying Credentials...</span>
                 </>
               ) : (
-                <span>Sign In &amp; Enter Dashboard</span>
+                <span>Sign In with Credentials</span>
               )}
             </button>
           </form>
-
-          {/* Quick Fill Demo Roles */}
-          <div className="mt-6 pt-5 border-t border-slate-800/80">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2.5">
-              1-Click Demo Accounts (Filtered by Role)
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              {demoAccounts.map((account) => (
-                <button
-                  key={account.role}
-                  type="button"
-                  onClick={() => handleQuickLogin(account)}
-                  className={`p-2.5 rounded-xl border text-left transition hover:scale-[1.02] bg-gradient-to-br ${account.color}`}
-                >
-                  <div className="flex items-center gap-1.5 font-bold text-xs text-white">
-                    <span>{account.icon}</span>
-                    <span className="capitalize">{account.role.replace('_', ' ')}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5 truncate">{account.email}</p>
-                </button>
-              ))}
-            </div>
-            <p className="text-[10px] text-slate-500 mt-2 text-center">
-              Click any role card to automatically populate email and password
-            </p>
-          </div>
         </div>
 
         {/* Footer info */}
