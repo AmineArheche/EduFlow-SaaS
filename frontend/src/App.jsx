@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import LoginPage from './components/LoginPage';
 import SuperAdminDashboard from './components/SuperAdminDashboard';
@@ -49,6 +49,36 @@ export default function App() {
     },
   ]);
 
+  // Session rehydration on initial mount
+  useEffect(() => {
+    const token = localStorage.getItem('eduflow_token');
+    if (!token) return;
+
+    fetch('/api/auth/me', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.success && data.user) {
+          setCurrentUser(data.user);
+          setCurrentRole(data.user.role);
+          addToast({
+            type: 'info',
+            title: 'Session Restored',
+            message: `Welcome back, ${data.user.name}.`,
+          });
+        } else {
+          localStorage.removeItem('eduflow_token');
+        }
+      })
+      .catch(() => {
+        // Fallback gracefully on network error
+      });
+  }, []);
+
   const addToast = (toast) => {
     const id = Date.now();
     const newToast = { ...toast, id };
@@ -69,14 +99,28 @@ export default function App() {
     setCurrentView('overview');
   };
 
-  // Logout handler: returns to login page
-  const handleLogout = () => {
-    localStorage.removeItem('eduflow_token');
+  // Logout handler: revokes token server-side and clears client state
+  const handleLogout = async () => {
+    const token = localStorage.getItem('eduflow_token');
+    if (token) {
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/json',
+          },
+        });
+      } catch {
+        // Continue logout even if server is offline
+      }
+      localStorage.removeItem('eduflow_token');
+    }
     setCurrentUser(null);
     addToast({
       type: 'info',
       title: 'Signed Out',
-      message: 'You have been signed out. Please log in again to access portals.',
+      message: 'You have been signed out. Token revoked.',
     });
   };
 

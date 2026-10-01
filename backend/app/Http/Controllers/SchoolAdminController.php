@@ -40,11 +40,12 @@ class SchoolAdminController extends Controller
         $query = User::where('tenant_id', $tenantId)
             ->where('role', 'student');
 
-        // Search by name or email
+        // Search by name or email (escape wildcards to avoid SQL regex degradation)
         if ($search = $request->query('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+            $escaped = addcslashes($search, '%_\\');
+            $query->where(function ($q) use ($escaped) {
+                $q->where('name', 'like', "%{$escaped}%")
+                  ->orWhere('email', 'like', "%{$escaped}%");
             });
         }
 
@@ -78,13 +79,7 @@ class SchoolAdminController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique('users', 'email')->where(fn ($q) => $q->where('tenant_id', $tenantId)),
-            ],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
             'status' => ['nullable', 'string', 'in:active,inactive,suspended'],
         ]);
@@ -124,9 +119,7 @@ class SchoolAdminController extends Controller
                 'string',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')
-                    ->where(fn ($q) => $q->where('tenant_id', $tenantId))
-                    ->ignore($student->id),
+                Rule::unique('users', 'email')->ignore($student->id),
             ],
             'password' => ['nullable', 'string', 'min:8'],
             'status' => ['sometimes', 'required', 'string', 'in:active,inactive,suspended'],
@@ -183,11 +176,12 @@ class SchoolAdminController extends Controller
             ->where('role', 'professor')
             ->withCount('taughtSubjects');
 
-        // Search by name or email
+        // Search by name or email (escape wildcards)
         if ($search = $request->query('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
+            $escaped = addcslashes($search, '%_\\');
+            $query->where(function ($q) use ($escaped) {
+                $q->where('name', 'like', "%{$escaped}%")
+                  ->orWhere('email', 'like', "%{$escaped}%");
             });
         }
 
@@ -221,13 +215,7 @@ class SchoolAdminController extends Controller
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique('users', 'email')->where(fn ($q) => $q->where('tenant_id', $tenantId)),
-            ],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8'],
             'status' => ['nullable', 'string', 'in:active,inactive,suspended'],
         ]);
@@ -267,9 +255,7 @@ class SchoolAdminController extends Controller
                 'string',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')
-                    ->where(fn ($q) => $q->where('tenant_id', $tenantId))
-                    ->ignore($professor->id),
+                Rule::unique('users', 'email')->ignore($professor->id),
             ],
             'password' => ['nullable', 'string', 'min:8'],
             'status' => ['sometimes', 'required', 'string', 'in:active,inactive,suspended'],
