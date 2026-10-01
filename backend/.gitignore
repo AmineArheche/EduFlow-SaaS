@@ -22,3 +22,5 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+# SQLite database files should not be tracked in version control
+/database/*.sqlite

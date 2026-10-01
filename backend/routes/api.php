@@ -18,8 +18,8 @@ Route::get('/health', function () {
     ]);
 });
 
-// Authentication endpoints
-Route::prefix('auth')->group(function () {
+// Authentication endpoints — throttled to prevent brute force attacks
+Route::middleware('throttle:10,1')->prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
 
@@ -34,13 +34,15 @@ Route::prefix('auth')->group(function () {
 | Multi-Tenant Directory Routes (v1)
 |--------------------------------------------------------------------------
 */
-Route::prefix('v1')->group(function () {
+// Tenant directory — requires authentication to prevent data enumeration
+Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
     Route::get('/tenants', function () {
         return Tenant::withCount(['users', 'classes', 'subjects'])->get();
     });
 
+    // Users are NOT exposed in the public tenant route to prevent IDOR
     Route::get('/tenants/{tenant:slug}', function (Tenant $tenant) {
-        return $tenant->load(['classes.subjects.professor', 'users']);
+        return $tenant->load(['classes.subjects.professor']);
     });
 
     Route::get('/tenants/{tenant:slug}/classes', function (Tenant $tenant) {

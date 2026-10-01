@@ -53,7 +53,8 @@ class SchoolAdminController extends Controller
             $query->where('status', $status);
         }
 
-        $perPage = (int) $request->query('per_page', 10);
+        // Cap per_page at 100 to prevent DoS via oversized queries
+        $perPage = min((int) $request->query('per_page', 10), 100);
         $students = $query->latest()->paginate($perPage);
 
         return response()->json([
@@ -195,7 +196,8 @@ class SchoolAdminController extends Controller
             $query->where('status', $status);
         }
 
-        $perPage = (int) $request->query('per_page', 10);
+        // Cap per_page at 100 to prevent DoS via oversized queries
+        $perPage = min((int) $request->query('per_page', 10), 100);
         $professors = $query->latest()->paginate($perPage);
 
         return response()->json([
