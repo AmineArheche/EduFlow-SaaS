@@ -20,7 +20,7 @@ const mockStudentData = {
       professor: 'Dr. Alan Turing',
       professorEmail: 'alan.turing@horizon-academy.edu',
       currentGrade: 'A (92%)',
-      schedule: 'Mon, Wed, Fri &bull; 09:00 - 10:30',
+      schedule: 'Mon, Wed, Fri • 09:00 - 10:30',
       credits: 4,
     },
     {
@@ -30,7 +30,7 @@ const mockStudentData = {
       professor: 'Prof. Marie Curie',
       professorEmail: 'marie.curie@horizon-academy.edu',
       currentGrade: 'A- (89%)',
-      schedule: 'Tue, Thu &bull; 11:00 - 12:30',
+      schedule: 'Tue, Thu • 11:00 - 12:30',
       credits: 4,
     },
     {
@@ -40,7 +40,7 @@ const mockStudentData = {
       professor: 'Dr. Katherine Johnson',
       professorEmail: 'k.johnson@horizon-academy.edu',
       currentGrade: 'A (94%)',
-      schedule: 'Mon, Wed &bull; 14:00 - 15:30',
+      schedule: 'Mon, Wed • 14:00 - 15:30',
       credits: 3,
     },
     {
@@ -50,7 +50,7 @@ const mockStudentData = {
       professor: 'Prof. Richard Feynman',
       professorEmail: 'r.feynman@horizon-academy.edu',
       currentGrade: 'B+ (87%)',
-      schedule: 'Friday &bull; 13:00 - 15:00',
+      schedule: 'Friday • 13:00 - 15:00',
       credits: 3,
     },
   ],
@@ -151,7 +151,7 @@ export default function StudentDashboard({ addToast }) {
                 </div>
 
                 <div className="text-[11px] text-slate-400 border-t border-slate-800/80 pt-3 flex items-center justify-between">
-                  <span dangerouslySetInnerHTML={{ __html: subject.schedule }}></span>
+                  <span>{subject.schedule}</span>
                   <span className="text-slate-500">{subject.credits} Credits</span>
                 </div>
               </div>

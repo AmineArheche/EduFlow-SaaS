@@ -1,8 +1,8 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/laravel",
+    "name": "aminearbeche/eduflow-saas-backend",
     "type": "project",
-    "description": "The skeleton application for the Laravel framework.",
+    "description": "EduFlow SaaS — Multi-Tenant Educational Platform API (Laravel 12).",
     "keywords": ["laravel", "framework"],
     "license": "MIT",
     "require": {

@@ -44,7 +44,9 @@ class CheckRole
             abort(403, 'Your account is suspended or inactive.');
         }
 
-        // 3. Super admin bypass or verify specific role
+        // 3. Strict role enforcement — each route group only accepts its declared role(s).
+        //    Super admins are restricted to /api/admin/* routes only (strict separation by design).
+        //    To allow super_admin cross-role access, add: || $user->role === 'super_admin'
         if (!in_array($user->role, $roles, true)) {
             if ($request->expectsJson() || $request->is('api/*')) {
                 return response()->json([

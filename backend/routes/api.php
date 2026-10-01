@@ -18,8 +18,8 @@ Route::get('/health', function () {
     ]);
 });
 
-// Authentication endpoints
-Route::prefix('auth')->group(function () {
+// Authentication endpoints — throttled to prevent brute force attacks
+Route::middleware('throttle:10,1')->prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
 
@@ -34,21 +34,54 @@ Route::prefix('auth')->group(function () {
 | Multi-Tenant Directory Routes (v1)
 |--------------------------------------------------------------------------
 */
-Route::prefix('v1')->group(function () {
-    Route::get('/tenants', function () {
-        return Tenant::withCount(['users', 'classes', 'subjects'])->get();
+// Tenant directory — requires authentication and enforces tenant isolation
+Route::middleware('auth:sanctum')->prefix('v1')->group(function () {
+    Route::get('/tenants', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+        if ($user->role === 'super_admin') {
+            return Tenant::withCount(['users', 'classes', 'subjects'])->get();
+        }
+
+        return Tenant::where('id', $user->tenant_id)
+            ->withCount(['users', 'classes', 'subjects'])
+            ->get();
     });
 
-    Route::get('/tenants/{tenant:slug}', function (Tenant $tenant) {
-        return $tenant->load(['classes.subjects.professor', 'users']);
+    // Enforce tenant scoping: users can only view their own school tenant unless super_admin
+    Route::get('/tenants/{tenant:slug}', function (\Illuminate\Http\Request $request, Tenant $tenant) {
+        $user = $request->user();
+        if ($user->role !== 'super_admin' && (int) $user->tenant_id !== (int) $tenant->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access Denied: Cross-tenant resource access is forbidden.',
+            ], 403);
+        }
+
+        return $tenant->load(['classes.subjects.professor:id,name,email,role']);
     });
 
-    Route::get('/tenants/{tenant:slug}/classes', function (Tenant $tenant) {
-        return $tenant->classes()->with('subjects.professor')->get();
+    Route::get('/tenants/{tenant:slug}/classes', function (\Illuminate\Http\Request $request, Tenant $tenant) {
+        $user = $request->user();
+        if ($user->role !== 'super_admin' && (int) $user->tenant_id !== (int) $tenant->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access Denied: Cross-tenant resource access is forbidden.',
+            ], 403);
+        }
+
+        return $tenant->classes()->with('subjects.professor:id,name,email,role')->get();
     });
 
-    Route::get('/tenants/{tenant:slug}/subjects', function (Tenant $tenant) {
-        return $tenant->subjects()->with(['class', 'professor'])->get();
+    Route::get('/tenants/{tenant:slug}/subjects', function (\Illuminate\Http\Request $request, Tenant $tenant) {
+        $user = $request->user();
+        if ($user->role !== 'super_admin' && (int) $user->tenant_id !== (int) $tenant->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access Denied: Cross-tenant resource access is forbidden.',
+            ], 403);
+        }
+
+        return $tenant->subjects()->with(['class', 'professor:id,name,email,role'])->get();
     });
 });
 
